@@ -1,10 +1,9 @@
 const { until, By, Builder, Browser, Actions } = require("selenium-webdriver");
 
 const scrape = async () => {
+  const driver = await new Builder().forBrowser(Browser.CHROME).build();
+  await driver.get("https://logistics.temu.com/container/auth/login");
   try {
-    const driver = await new Builder().forBrowser(Browser.CHROME).build();
-    await driver.get("https://logistics.temu.com/container/auth/login");
-
     // Login
     const formLocated = until.elementLocated(By.css("form"));
     const form = await driver.wait(formLocated, 10000);
@@ -40,7 +39,7 @@ const scrape = async () => {
   } catch (error) {
     console.log(error.message);
   } finally {
-    //await driver.quit();
+    await driver.quit();
   }
 };
 
@@ -91,6 +90,89 @@ const invisibleElementTest = async () => {
   }
 };
 
+const scrapeStudentsIwsp = async (name) => {
+  const driver = await new Builder().forBrowser(Browser.CHROME).build();
+  await driver.get("https://growpro.fxwebapps.com/auth/login");
+  try {
+    // Find login elements
+    const loginFormLocated = until.elementLocated(By.className("form-default"));
+    const loginForm = await driver.wait(loginFormLocated, 10000);
+    const emailInput = loginForm.findElement(By.id("email"));
+    const passwordInput = loginForm.findElement(By.id("password"));
+    // Login
+    await emailInput.sendKeys("faisalfxmweb+pa1@gmail.com");
+    await passwordInput.sendKeys("Password@12345");
+    await loginForm.submit();
+    // Navigate to users page
+    const usersNav = await driver.wait(
+      until.elementLocated(By.css('a[href="/portal/user"]')),
+      10000
+    );
+    await usersNav.click();
+
+    if (name && name.trim()) {
+      const filterInput = await driver.wait(
+        until.elementLocated(By.css("input[type=text]")),
+        10000
+      );
+      await filterInput.sendKeys(name);
+      await delay(2000);
+    }
+
+    const perPageDropdown = await driver.wait(
+      until.elementLocated(By.xpath('//select[contains(@class, "sc-cwSeag")]')),
+      10000
+    );
+    const perPageItem = perPageDropdown.findElement(
+      By.xpath("./option[@selected]")
+    );
+    const perPage = await perPageItem.getText();
+    const pagingText = await driver
+      .findElement(By.className("sc-bYMpWt sc-kMjNwy KQKvZ hecCuC"))
+      .getText();
+    const pagingInfo = pagingText
+      .split("of")
+      .map((t) => t.trim())
+      .filter((t) => t);
+    const pages = Math.ceil(parseInt(pagingInfo[1]) / perPage);
+
+    let data = [];
+    for (let page = 0; page < pages; page++) {
+      await delay(2000);
+
+      const rows = await driver.wait(
+        until.elementsLocated(By.className("rdt_TableRow")),
+        10000
+      );
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        data.push({
+          name: await row.findElement(By.xpath("./div[2]")).getText(),
+          organization: await row.findElement(By.xpath("./div[3]")).getText(),
+          programme: await row.findElement(By.xpath("./div[4]")).getText(),
+          email: await row.findElement(By.xpath("./div[5]")).getText(),
+        });
+      }
+      const nextBtn = await driver.findElement(By.id("pagination-next-page"));
+      await driver.actions().move({ origin: nextBtn }).click().perform();
+    }
+    console.table(data);
+  } catch (error) {
+    console.log(error);
+  } finally {
+    //driver.quit();
+  }
+};
+
+const delay = (seconds) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, seconds);
+  });
+};
+
 //scrape();
 //xpathTest();
-invisibleElementTest();
+//invisibleElementTest();
+scrapeStudentsIwsp(); // pagination
